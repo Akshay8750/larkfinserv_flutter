@@ -25,13 +25,13 @@ class EligibilityResult {
     return EligibilityResult(
       eligible: json['eligible'] ?? false,
       amount:
-          (json['amount'] != null) ? (json['amount'] as num).toDouble() : null,
+      (json['amount'] != null) ? (json['amount'] as num).toDouble() : null,
       interestRate: (json['interestRate'] != null)
           ? (json['interestRate'] as num).toDouble()
           : null,
       terms: json['terms'] != null ? List<String>.from(json['terms']) : null,
       reasons:
-          json['reasons'] != null ? List<String>.from(json['reasons']) : null,
+      json['reasons'] != null ? List<String>.from(json['reasons']) : null,
       mobile: json['mobile'],
       partnerId: json['partnerId'],
       sessionId: json['sessionId'],

@@ -75,28 +75,12 @@ class _ExampleHomeState extends State<ExampleHome> {
 
   void _openPopupMode() async {
     try {
-      await sdk.openEligibilityCheck(SDKMode.popup);
+      await sdk.openEligibilityCheck(context);
     } catch (e) {
       debugPrint("Popup mode failed: $e");
     }
   }
 
-  void _openEmbeddedMode() {
-    try {
-      final controller = sdk.createWebViewController();
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => Scaffold(
-            appBar: AppBar(title: const Text("Eligibility Check (Embedded)")),
-            body: WebViewWidget(controller: controller),
-          ),
-        ),
-      );
-    } catch (e) {
-      debugPrint("Embedded mode failed: $e");
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -111,10 +95,7 @@ class _ExampleHomeState extends State<ExampleHome> {
               child: const Text("Open Eligibility Check (Popup Mode)"),
             ),
             const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _openEmbeddedMode,
-              child: const Text("Open Eligibility Check (Embedded WebView)"),
-            ),
+
           ],
         ),
       ),

@@ -1,17 +1,9 @@
-import 'dart:async';
-import 'dart:convert';
-
+import 'package:larkfinserv_flutter/larkfinserv_flutter.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-
-import 'config/constants.dart';
-import 'types/sdk_types.dart';
 
 class LarkFinServSDK {
   PartnerConfig? _config;
   final _eventController = StreamController<SDKEvent>.broadcast();
-  WebViewController? _webViewController;
   String? _iframeUrl;
 
   Stream<SDKEvent> get events => _eventController.stream;
@@ -48,15 +40,17 @@ class LarkFinServSDK {
       if (_config!.phoneNumber != null) {
         endpoint = '$endpoint?phone=${_config!.phoneNumber}&isVerified=true';
       }
-
-      final response = await http.get(
-        Uri.parse(endpoint),
-        headers: {
+      late final http.Response response;
+      try {
+        response = await http.get(Uri.parse(endpoint), headers: {
           ...SDKConstants.defaultHeaders,
           'X-SDK-Key': _config!.apiKey,
           'X-SDK-Secret': _config!.apiSecret,
-        },
-      );
+        });
+      } catch (e, stack) {
+        log("HTTP Error: $e");
+        log("Stacktrace: $stack");
+      }
 
       if (response.statusCode != 200) {
         throw SDKError(
@@ -64,7 +58,6 @@ class LarkFinServSDK {
           message: 'Failed to initialize SDK: ${response.body}',
         );
       }
-
       final data = json.decode(response.body);
       final dynamic userObject = data['user'];
       final String? extractedUserId = (userObject is Map<String, dynamic>)
@@ -127,126 +120,35 @@ class LarkFinServSDK {
     return '$baseUrl?$queryString';
   }
 
-  Future<void> openEligibilityCheck(SDKMode mode) async {
+  Future<void> openEligibilityCheck(BuildContext context) async {
     if (_iframeUrl == null) {
       throw SDKError(
         code: 'SDK_NOT_INITIALIZED',
         message: 'SDK must be initialized before opening eligibility check',
       );
     }
-
     _eventController.add(SDKEvent(type: SDKEventType.initiated));
-
-    if (mode == SDKMode.popup) {
-      final url = Uri.parse(_iframeUrl!);
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-      } else {
-        throw SDKError(
-          code: 'URL_LAUNCH_FAILED',
-          message: 'Could not launch eligibility check URL',
-        );
-      }
-    }
-  }
-
-  WebViewController createWebViewController() {
-    if (_iframeUrl == null) {
-      throw SDKError(
-        code: 'SDK_NOT_INITIALIZED',
-        message: 'SDK must be initialized before creating WebView',
-      );
-    }
-
-    _webViewController = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..addJavaScriptChannel("LarkFinServBridge",
-          onMessageReceived: (JavaScriptMessage message) {
-        try {
-          final Map<String, dynamic> payload = json.decode(message.message);
-          final String? type = payload['type'] as String?;
-          final dynamic data = payload['data'];
-          if (type == null) return;
-          switch (type) {
-            case 'READY':
-              _eventController.add(SDKEvent(type: SDKEventType.ready));
-              break;
-            case 'ELIGIBILITY_RESULT':
-              _eventController.add(SDKEvent(
-                type: SDKEventType.eligibilityResult,
-                data: {'result': data},
-              ));
-              break;
-            case 'ERROR':
-              _eventController.add(SDKEvent(
-                type: SDKEventType.error,
-                data: {
-                  'error': SDKError(
-                    code: 'SDK_ERROR',
-                    message: data?['error']?.toString() ?? 'Unknown error',
-                  ),
-                },
-              ));
-              break;
-            case 'CLOSE':
-              _eventController.add(SDKEvent(type: SDKEventType.close));
-              break;
-            case 'CLOSE_FRAME':
-              _eventController.add(SDKEvent(type: SDKEventType.closeFrame));
-              break;
-            default:
-              break;
-          }
-        } catch (_) {
-          // ignore malformed messages
-        }
-      })
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageFinished: (String url) {
-            // Inject a listener to forward window message events to the Flutter bridge if available
-            _webViewController?.runJavaScript(
-                'try {\n  if (typeof LarkFinServBridge !== \"undefined\") {\n    window.addEventListener(\"message\", function(e) {\n      try { LarkFinServBridge.postMessage(JSON.stringify(e.data)); } catch (err) {}\n    });\n  }\n} catch (err) {}');
-            _eventController.add(SDKEvent(type: SDKEventType.ready));
-          },
-          onWebResourceError: (WebResourceError error) {
-            _eventController.add(SDKEvent(
-              type: SDKEventType.error,
-              data: {
-                'error': SDKError(
-                  code: 'WEBVIEW_ERROR',
-                  message: error.description,
-                )
-              },
-            ));
-          },
+    final url = Uri.parse(_iframeUrl!);
+    if ((url.isScheme('http') || url.isScheme('https')) &&
+        url.host.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => EligibilityCheckWebView(
+            url: "$url",
+            title: "Eligibility Check",
+          ),
         ),
-      )
-      ..loadRequest(Uri.parse(_iframeUrl!));
-
-    return _webViewController!;
-  }
-
-  Future<void> sendData(Map<String, dynamic> data) async {
-    if (_webViewController == null) {
+      );
+    } else {
       throw SDKError(
-        code: 'SDK_NOT_INITIALIZED',
-        message: 'WebView not created. Call createWebViewController() first.',
+        code: 'URL_LAUNCH_FAILED',
+        message: 'Could not launch eligibility check URL',
       );
     }
-    final Map<String, dynamic> payload = {
-      'type': 'USER_DATA_UPDATE',
-      'data': data,
-      'metadata': {
-        'partnerId': _config?.partnerId,
-      },
-    };
-    final String js = 'window.postMessage(${jsonEncode(payload)}, "*")';
-    await _webViewController!.runJavaScript(js);
   }
 
   void dispose() {
     _eventController.close();
-    _webViewController = null;
   }
 }

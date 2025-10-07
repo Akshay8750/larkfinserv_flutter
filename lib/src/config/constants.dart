@@ -1,6 +1,6 @@
 class SDKConstants {
   // Production endpoints
-  static const String sdkApiUrlProd = 'https://sdk-backend.larkfinserv.in';
+  static const String sdkApiUrlProd = 'https://backend-sdk.larkfinserv.in';
   static const String sdkUrlProd = 'https://sdk-lark.larkfinserv.in';
 
   // Sandbox/local endpoints (adjust as needed)

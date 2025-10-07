@@ -1,6 +1,6 @@
 name: larkfinserv_flutter
 description: A Flutter SDK for integrating Lark FinServ's loan eligibility check functionality into your Flutter applications.
-version: 1.0.1
+version: 1.0.2
 homepage: https://github.com/yourusername/larkfinserv_flutter
 repository: https://github.com/yourusername/larkfinserv_flutter.git
 issue_tracker: https://github.com/yourusername/larkfinserv_flutter/issues
@@ -13,7 +13,6 @@ dependencies:
   flutter:
     sdk: flutter
   webview_flutter: ^4.13.0
-  url_launcher: ^6.3.2
   http: ^1.5.0
   shared_preferences: ^2.5.3
 
